@@ -3,27 +3,34 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Note;
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreNoteRequest;
+use App\Http\Requests\UpdateNoteRequest;
+use App\Services\NoteService;
 
 class NoteController extends Controller
 {
+    protected $noteService;
+
+    // Inject the service layer into the controller
+    public function __construct(NoteService $noteService)
+    {
+        $this->noteService = $noteService;
+    }
+
     // Return all notes
     public function index()
     {
-        $notes = Note::all();
+        $notes = $this->noteService->getAllNotes();
         return response()->json(['data' => $notes], 200);
     }
 
     // Create a new note
-    public function store(Request $request)
+    public function store(StoreNoteRequest $request)
     {
-        $data = $request->validate([
-            'title' => 'required|string|max:255',
-            'content' => 'nullable|string',
-        ]);
+        // Validation is handled by FormRequest
+        $data = $request->validated();
 
-        $note = Note::create($data);
+        $note = $this->noteService->createNote($data);
 
         return response()->json(['data' => $note], 201);
     }
@@ -31,7 +38,7 @@ class NoteController extends Controller
     // Show single note
     public function show($id)
     {
-        $note = Note::find($id);
+        $note = $this->noteService->getNoteById($id);
 
         if (! $note) {
             return response()->json(['message' => 'Note not found'], 404);
@@ -41,21 +48,16 @@ class NoteController extends Controller
     }
 
     // Update note
-    public function update(Request $request, $id)
+    public function update(UpdateNoteRequest $request, $id)
     {
-        $note = Note::find($id);
+        // Validation is handled by FormRequest
+        $data = $request->validated();
+
+        $note = $this->noteService->updateNote($id, $data);
 
         if (! $note) {
             return response()->json(['message' => 'Note not found'], 404);
         }
-
-        $data = $request->validate([
-            'title' => 'sometimes|required|string|max:255',
-            'content' => 'nullable|string',
-        ]);
-
-        $note->fill($data);
-        $note->save();
 
         return response()->json(['data' => $note], 200);
     }
@@ -63,13 +65,12 @@ class NoteController extends Controller
     // Delete note
     public function destroy($id)
     {
-        $note = Note::find($id);
+        $deleted = $this->noteService->deleteNote($id);
 
-        if (! $note) {
+        if (! $deleted) {
             return response()->json(['message' => 'Note not found'], 404);
         }
 
-        $note->delete();
         return response()->json(null, 204);
     }
 }
